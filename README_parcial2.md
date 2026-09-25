@@ -77,6 +77,34 @@ enunciado.)
   asignación válida que notifica y verificación del payload registrado
   por `WebhookNotifier`.
 
+### Ejercicio 4 — SQL e integridad referencial
+- `docs/database/schema.sql`: esquema PostgreSQL (`users`, `tickets`,
+  `comments`, `ticket_history`), con `ON DELETE CASCADE` en `comments.ticket_id`
+  y `ticket_history.ticket_id` hacia `tickets(id)`.
+- `docs/database/seed_data.sql`: datos de ejemplo (4 usuarios, 5 tickets,
+  3 comentarios, 6 eventos de historial).
+- `docs/database/queries_parcial2.sql`: las cuatro consultas pedidas
+  (a) tickets abiertos + JOIN con el solicitante, (b) conteo por técnico
+  con `HAVING`/`ORDER BY ... DESC`, (c) tickets sin comentarios con
+  `NOT EXISTS` (se incluye también la variante `LEFT JOIN` comentada),
+  (d) demostración de `ON DELETE CASCADE` sobre `ticket_history` dentro
+  de `BEGIN`/`ROLLBACK`.
+- `docs/database/queries_output.txt`: salida real capturada al ejecutar
+  el archivo anterior contra una instancia de PostgreSQL 16.
+
+### Ejercicio 5 — Consulta agregada y persistencia con SQLAlchemy
+- `app/repositories/sqlalchemy.py`: modelos ORM (`UserORM`, `TicketORM`,
+  `CommentORM`, `HistoryEventORM`) y `SqlAlchemyTicketRepository`, que
+  implementa la interfaz abstracta `TicketRepository` sin modificarla, y
+  agrega `count_by_status() -> dict[str, int]` mediante
+  `select(TicketORM.status, func.count()).group_by(TicketORM.status)`.
+- `tests/test_sqlalchemy_repository.py`: crea tres tickets (dos `open`,
+  uno `assigned`) usando el repositorio, confirma la transacción
+  (`session.commit()`), cierra esa sesión y vuelve a consultar
+  `count_by_status()` desde una **sesión nueva** sobre el mismo engine
+  SQLite en memoria con `StaticPool`. También cubre el caso de una base
+  vacía (`{}`) y un caso con una base de prueba independiente.
+
 ## Cómo ejecutar las pruebas
 
 ```bash
@@ -96,13 +124,95 @@ repositorio nuevo; no hubo una versión previa sin ellas que ejecutar.
 ```
 Using CPython 3.12.3 interpreter at: /usr/bin/python3
 Creating virtual environment at: .venv
-Installed 5 packages in 5ms
-...............                                                          [100%]
-15 passed in 0.03s
+Downloading sqlalchemy (4.5MiB)
+Installed 2 packages in 2ms
+...................                                                      [100%]
+19 passed in 0.87s
 ```
 
-No se registraron fallos. Las 15 pruebas (6 del ejercicio 1, 4 del
-ejercicio 2 y 5 del ejercicio 3) pasan correctamente.
+No se registraron fallos. Las 19 pruebas (6 del ejercicio 1, 4 del
+ejercicio 2, 5 del ejercicio 3 y 4 del ejercicio 5) pasan correctamente.
+
+## Ejercicio 4 — Ejecución y evidencia en PostgreSQL
+
+Instrucciones reproducibles (usando psql; equivalente vía Docker con el
+mapeo de puertos `5433:5432` visto en clase — ajustar host/puerto según
+corresponda):
+
+```bash
+createdb -U <usuario> helpdesk_edu
+psql -U <usuario> -d helpdesk_edu -f docs/database/schema.sql
+psql -U <usuario> -d helpdesk_edu -f docs/database/seed_data.sql
+psql -U <usuario> -d helpdesk_edu -f docs/database/queries_parcial2.sql
+```
+
+Salida real obtenida (PostgreSQL 16):
+
+```
+ id |         title         | status |  requester_name
+----+-----------------------+--------+------------------
+  4 | Actualizar antivirus  | open   | Dani Solicitante
+  5 | Proyector no enciende | open   | Ana Solicitante
+(2 rows)
+
+ technician_id | technician_name | ticket_count
+---------------+------------------+--------------
+             2 | Beto Técnico     |            2
+             3 | Carla Técnica    |            1
+(2 rows)
+
+ id |         title         |  status
+----+-----------------------+----------
+  2 | Sin internet en sala  | assigned
+  4 | Actualizar antivirus  | open
+  5 | Proyector no enciende | open
+(3 rows)
+
+BEGIN
+ history_count_before
+----------------------
+                    2
+(1 row)
+
+DELETE 1
+ history_count_after_delete
+----------------------------
+                          0
+(1 row)
+
+ROLLBACK
+ history_count_after_rollback
+------------------------------
+                            2
+(1 row)
+```
+
+**Verificación de integridad tras el ROLLBACK** (los datos permanecen
+intactos: siguen los 5 tickets, 3 comentarios y 6 filas de historial
+originales):
+
+```
+ tickets | comments | history
+---------+----------+---------
+       5 |        3 |       6
+(1 row)
+```
+
+## Limitaciones
+
+- El esquema de `docs/database/*.sql` y los modelos ORM de
+  `app/repositories/sqlalchemy.py` se definieron desde cero para este
+  parcial, replicando fielmente las entidades de dominio
+  (`app/models/entities.py`) y las reglas de cascada vistas en clase;
+  no se contó con el `database.sql` original del proyecto de clase para
+  reutilizarlo literalmente.
+- `SqlAlchemyTicketRepository.next_id()` devuelve un valor no
+  significativo (0): en esta implementación el id real lo asigna la
+  base de datos (columna autoincremental) dentro de `add()`, por lo que
+  ningún llamador debe depender de `next_id()` para repositorios SQL.
+- No se ejecutaron pruebas de integración de `SqlAlchemyTicketRepository`
+  contra PostgreSQL real (solo SQLite en memoria, como permite el
+  enunciado); el ejercicio 4 sí se validó contra PostgreSQL real.
 
 ## Notas
 
