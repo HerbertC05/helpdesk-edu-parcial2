@@ -3,7 +3,9 @@ name = "helpdesk-edu"
 version = "0.1.0"
 description = "Proyecto HelpDesk EDU - Parcial 2"
 requires-python = ">=3.11"
-dependencies = []
+dependencies = [
+    "sqlalchemy>=2.0.0",
+]
 
 [dependency-groups]
 dev = [
