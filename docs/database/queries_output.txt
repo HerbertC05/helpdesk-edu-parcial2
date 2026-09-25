@@ -1,0 +1,37 @@
+ id |         title         | status |  requester_name  
+----+-----------------------+--------+------------------
+  4 | Actualizar antivirus  | open   | Dani Solicitante
+  5 | Proyector no enciende | open   | Ana Solicitante
+(2 rows)
+
+ technician_id | technician_name | ticket_count 
+---------------+-----------------+--------------
+             2 | Beto Técnico    |            2
+             3 | Carla Técnica   |            1
+(2 rows)
+
+ id |         title         |  status  
+----+-----------------------+----------
+  2 | Sin internet en sala  | assigned
+  4 | Actualizar antivirus  | open
+  5 | Proyector no enciende | open
+(3 rows)
+
+BEGIN
+ history_count_before 
+----------------------
+                    2
+(1 row)
+
+DELETE 1
+ history_count_after_delete 
+----------------------------
+                          0
+(1 row)
+
+ROLLBACK
+ history_count_after_rollback 
+------------------------------
+                            2
+(1 row)
+
