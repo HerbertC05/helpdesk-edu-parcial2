@@ -1,0 +1,5 @@
+ tickets | comments | history 
+---------+----------+---------
+       5 |        3 |       6
+(1 row)
+
